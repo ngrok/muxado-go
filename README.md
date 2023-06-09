@@ -80,4 +80,4 @@ It shines best when the application workload needs to quickly open a large numbe
 Most of muxado's features are implemented (and tested!), but there are many that are still rough or could be improved. See the TODO file for suggestions on what needs to improve.
 
 ## License
-Apache
+MIT
