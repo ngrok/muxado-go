@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"sync/atomic"
 	"time"
@@ -253,7 +252,7 @@ func poolPut(x interface{}) {
 func (s *session) writeFrame(f frame.Frame, dl time.Time) error {
 	var timeout <-chan time.Time
 	if !dl.IsZero() {
-		timeout = time.After(dl.Sub(time.Now()))
+		timeout = time.After(time.Until(dl))
 	}
 	var req = writeReq{f: f, err: poolGet().(chan error)}
 	select {
@@ -334,7 +333,7 @@ func (s *session) writer() {
 			}
 			if err != nil {
 				// any write error kills the session
-				s.die(err)
+				_ = s.die(err)
 			}
 		case <-s.dead:
 			return
@@ -351,9 +350,9 @@ func (s *session) reader() {
 		if err != nil {
 			err = fromFrameError(err)
 			if err == io.EOF {
-				s.die(eofPeer)
+				_ = s.die(eofPeer)
 			} else {
-				s.die(err)
+				_ = s.die(err)
 			}
 			return
 		}
@@ -362,7 +361,7 @@ func (s *session) reader() {
 		// to prevent further data on the transport from being processed
 		// when the session is now in a possibly illegal state
 		if err := s.handleFrame(f); err != nil {
-			s.die(err)
+			_ = s.die(err)
 			return
 		}
 		select {
@@ -375,7 +374,7 @@ func (s *session) reader() {
 
 func (s *session) recoverPanic(prefix string) {
 	if r := recover(); r != nil {
-		s.die(newErr(InternalError, fmt.Errorf("%s panic: %v", prefix, r)))
+		_ = s.die(newErr(InternalError, fmt.Errorf("%s panic: %v", prefix, r)))
 	}
 }
 
@@ -403,7 +402,7 @@ func (s *session) handleFrame(rf frame.Frame) error {
 			// if we get a data frame on a non-existent connection, we still
 			// need to read out the frame body so that the stream stays in a
 			// good state.
-			if _, err := io.CopyN(ioutil.Discard, f.Reader(), int64(f.Length())); err != nil {
+			if _, err := io.CopyN(io.Discard, f.Reader(), int64(f.Length())); err != nil {
 				return err
 			}
 
@@ -412,7 +411,7 @@ func (s *session) handleFrame(rf frame.Frame) error {
 			if err := fRst.Pack(f.StreamId(), frame.ErrorCode(StreamClosed)); err != nil {
 				return newErr(InternalError, fmt.Errorf("failed to pack data on closed stream RST: %v", err))
 			}
-			s.writeFrameAsync(fRst)
+			_ = s.writeFrameAsync(fRst)
 			return nil
 		}
 		return str.handleStreamData(f)
@@ -433,13 +432,13 @@ func (s *session) handleFrame(rf frame.Frame) error {
 
 		// read out at most 1 MB of debug output
 		r := io.LimitedReader{R: f.Debug(), N: 0x100000}
-		debug, err := ioutil.ReadAll(&r)
+		debug, err := io.ReadAll(&r)
 		if err != nil {
 			return err
 		}
 
 		// discard remaining debug output
-		if _, err = io.Copy(ioutil.Discard, &r); err != nil {
+		if _, err = io.Copy(io.Discard, &r); err != nil {
 			return err
 		}
 
@@ -465,7 +464,7 @@ func (s *session) handleFrame(rf frame.Frame) error {
 
 	case *frame.Unknown:
 		// unknown frame types ignored
-		if _, err := io.CopyN(ioutil.Discard, f.PayloadReader(), int64(f.Length())); err != nil {
+		if _, err := io.CopyN(io.Discard, f.PayloadReader(), int64(f.Length())); err != nil {
 			return err
 		}
 
@@ -482,7 +481,7 @@ func (s *session) handleSyn(f *frame.Data) (err error) {
 		if err := rstF.Pack(f.StreamId(), frame.ErrorCode(StreamRefused)); err != nil {
 			return newErr(InternalError, fmt.Errorf("failed to pack stream refused RST: %v", err))
 		}
-		s.writeFrameAsync(rstF)
+		_ = s.writeFrameAsync(rstF)
 		return
 	}
 
@@ -526,7 +525,7 @@ RETRY:
 		if err := rstF.Pack(f.StreamId(), frame.ErrorCode(AcceptQueueFull)); err != nil {
 			return newErr(InternalError, fmt.Errorf("failed to pack accept overflow RST: %v", err))
 		}
-		s.writeFrameAsync(rstF)
+		_ = s.writeFrameAsync(rstF)
 		// XXX close the stream!
 	}
 

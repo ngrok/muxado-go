@@ -18,12 +18,6 @@ type condWindow struct {
 	sync.Mutex
 }
 
-func newCondWindow(initialSize int) *condWindow {
-	w := new(condWindow)
-	w.Init(initialSize)
-	return w
-}
-
 func (w *condWindow) Init(initialSize int) {
 	w.val = initialSize
 	w.maxSize = initialSize
