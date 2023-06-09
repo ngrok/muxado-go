@@ -107,7 +107,7 @@ func (s *stream) Read(buf []byte) (int, error) {
 //     from the remote side, it will send a STREAM_RST with a CANCELED error code
 func (s *stream) Close() error {
 	s.bufImpl.Close()
-	s.CloseWrite()
+	_ = s.CloseWrite()
 	s.closeWith(closeError)
 	return nil
 }
@@ -236,7 +236,7 @@ func (s *stream) resetWith(errorCode ErrorCode, resetErr error) {
 		// make the reset frame
 		rst := new(frame.Rst)
 		if err := rst.Pack(s.id, frame.ErrorCode(errorCode)); err != nil {
-			s.session.die(newErr(InternalError, fmt.Errorf("failed to pack RST frame: %v", err)))
+			_ = s.session.die(newErr(InternalError, fmt.Errorf("failed to pack RST frame: %v", err)))
 			return
 		}
 
@@ -245,7 +245,7 @@ func (s *stream) resetWith(errorCode ErrorCode, resetErr error) {
 		defer s.writer.Unlock()
 
 		// send it
-		s.session.writeFrame(rst, zeroTime)
+		_ = s.session.writeFrame(rst, zeroTime)
 	})
 }
 
@@ -316,10 +316,10 @@ func (s *stream) sendWindowUpdate(inc uint32) {
 	// send a window update
 	var wndinc frame.WndInc
 	if err := wndinc.Pack(s.id, inc); err != nil {
-		s.session.die(newErr(InternalError, fmt.Errorf("failed to pack WNDINC frame: %v", err)))
+		_ = s.session.die(newErr(InternalError, fmt.Errorf("failed to pack WNDINC frame: %v", err)))
 		return
 	}
-	s.session.writeFrameAsync(&wndinc)
+	_ = s.session.writeFrameAsync(&wndinc)
 }
 
 func min(n1, n2 int) int {

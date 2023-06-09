@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"sync"
 	"time"
@@ -41,7 +40,7 @@ func (b *inboundBuffer) ReadFrom(rd io.Reader) (n int64, err error) {
 	var n64 int64
 	b.mu.Lock()
 	if b.err != nil {
-		if _, err = ioutil.ReadAll(rd); err == nil {
+		if _, err = io.ReadAll(rd); err == nil {
 			err = bufferClosed
 		}
 		goto DONE
