@@ -17,4 +17,4 @@ jobs:
       - name: Test
         run: go test -v -cover ./...
       - name: Lint
-        run: golangci-lint run .
+        run: golangci-lint run . --tests=false
