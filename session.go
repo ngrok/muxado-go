@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ngrok/muxado-go/frame"
+	"golang.ngrok.com/muxado/frame"
 )
 
 // private interface for Sessions to call Streams

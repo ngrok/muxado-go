@@ -1,3 +1,3 @@
-module github.com/ngrok/muxado-go
+module golang.ngrok.com/muxado
 
 go 1.20
