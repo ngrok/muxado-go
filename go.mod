@@ -1,4 +1,4 @@
-module golang.ngrok.com/muxado
+module golang.ngrok.com/muxado/v2
 
 go 1.20
 
