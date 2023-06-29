@@ -3,7 +3,7 @@ package muxado
 import (
 	"sync"
 
-	"golang.ngrok.com/muxado/frame"
+	"golang.ngrok.com/muxado/v2/frame"
 )
 
 const (

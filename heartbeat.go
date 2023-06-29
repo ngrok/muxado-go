@@ -17,7 +17,9 @@ const (
 
 type HeartbeatSession interface {
 	TypedStreamSession
-	Beat() time.Duration
+	// Beat returns the duration of the next heartbeat, and a bool indicating if
+	// it was received
+	Beat() (time.Duration, bool)
 	Start()
 	SetInterval(d time.Duration)
 	SetTolerance(d time.Duration)
@@ -45,12 +47,17 @@ type Heartbeat struct {
 	TypedStreamSession
 	config HeartbeatConfig
 	closed chan int
-	cb     func(time.Duration)
+	cb     func(time.Duration, bool)
 
 	onDemand chan chan time.Duration
 }
 
-func NewHeartbeat(sess TypedStreamSession, cb func(time.Duration), config *HeartbeatConfig) *Heartbeat {
+// NewHeartbeat creates a heartbeat stream.
+// The provided callback will be called on each heartbeat
+// with the heartbeat duration, as well as whether this was
+// a timeout or not. Being called with '(0, true)'
+// indicates a timeout.
+func NewHeartbeat(sess TypedStreamSession, cb func(time.Duration, bool), config *HeartbeatConfig) *Heartbeat {
 	if config == nil {
 		config = NewHeartbeatConfig()
 	}
@@ -70,19 +77,19 @@ func (h *Heartbeat) Accept() (net.Conn, error) {
 	return h.AcceptTypedStream()
 }
 
-func (h *Heartbeat) Beat() time.Duration {
+func (h *Heartbeat) Beat() (time.Duration, bool) {
 	timeout := time.After(time.Duration(h.tolerance))
 	respChan := make(chan time.Duration, 1)
 	select {
 	case <-timeout:
-		return 0
+		return 0, false
 	case h.onDemand <- respChan:
 	}
 	select {
 	case <-timeout:
-		return 0
+		return 0, false
 	case latency := <-respChan:
-		return latency
+		return latency, true
 	}
 }
 
@@ -132,10 +139,10 @@ func (h *Heartbeat) check(mark chan time.Duration) {
 		select {
 		case <-t.C:
 			// timed out waiting for a response!
-			h.cb(0)
+			h.cb(0, true)
 
 		case dur := <-mark:
-			h.cb(dur)
+			h.cb(dur, false)
 			interval, tolerance := h.getDurations()
 
 			// this is the only way to safely reset a go timer
