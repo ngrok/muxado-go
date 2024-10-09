@@ -182,6 +182,9 @@ func (h *Heartbeat) requester(mark chan time.Duration) {
 		select {
 		case respChan = <-h.onDemand:
 		case <-ticker.C:
+			// Make sure we're always using an up-to-date heartbeat interval
+			interval, _ := h.getDurations()
+			ticker.Reset(interval)
 		}
 
 		start := time.Now()
