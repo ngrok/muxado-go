@@ -44,14 +44,14 @@ func (s *typedStreamSession) AcceptTypedStream() (TypedStream, error) {
 	var stype [4]byte
 	_, err = str.Read(stype[:])
 	if err != nil {
-		str.Close()
+		_ = str.Close()
 		return nil, err
 	}
 	return &typedStream{str, StreamType(order.Uint32(stype[:]))}, nil
 }
 
 func (s *typedStreamSession) OpenTypedStream(st StreamType) (Stream, error) {
-	str, err := s.Session.OpenStream()
+	str, err := s.OpenStream()
 	if err != nil {
 		return nil, err
 	}

@@ -208,6 +208,8 @@ func (s *session) Addr() net.Addr {
 	return s.LocalAddr()
 }
 
+// nolint:staticcheck // For backwards compatibility, don't fix the 'error
+// last' lint until we're ready for a major version bump.
 func (s *session) Wait() (error, error, []byte) {
 	<-s.dead
 	dbg := s.remoteDebug.Load().(remoteDebug)
@@ -254,7 +256,7 @@ func (s *session) writeFrame(f frame.Frame, dl time.Time) error {
 	if !dl.IsZero() {
 		timeout = time.After(time.Until(dl))
 	}
-	var req = writeReq{f: f, err: poolGet().(chan error)}
+	req := writeReq{f: f, err: poolGet().(chan error)}
 	select {
 	case s.writeFrames <- req:
 	case <-s.dead:
@@ -276,7 +278,7 @@ func (s *session) writeFrame(f frame.Frame, dl time.Time) error {
 // like writeFrame but it returns immediately, do not use with any frame/buffer that will be reused
 // or free'd
 func (s *session) writeFrameAsync(f frame.Frame) error {
-	var req = writeReq{f: f}
+	req := writeReq{f: f}
 	select {
 	case s.writeFrames <- req:
 		return nil
@@ -306,7 +308,7 @@ func (s *session) die(err error) error {
 	close(s.dead)
 
 	// close the transport
-	s.transport.Close()
+	_ = s.transport.Close()
 
 	// notify all of the streams that we're closing
 	s.streams.Each(func(id frame.StreamId, str streamPrivate) {

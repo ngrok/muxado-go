@@ -21,7 +21,7 @@ type condWindow struct {
 func (w *condWindow) Init(initialSize int) {
 	w.val = initialSize
 	w.maxSize = initialSize
-	w.Cond.L = &w.Mutex
+	w.L = &w.Mutex
 }
 
 func (w *condWindow) Increment(inc int) {

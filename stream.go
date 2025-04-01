@@ -106,7 +106,7 @@ func (s *stream) Read(buf []byte) (int, error) {
 //   - If the stream receives another STREAM_DATA frame (except an empty one with a FIN)
 //     from the remote side, it will send a STREAM_RST with a CANCELED error code
 func (s *stream) Close() error {
-	s.bufImpl.Close()
+	_ = s.bufImpl.Close()
 	_ = s.CloseWrite()
 	s.closeWith(closeError)
 	return nil
@@ -163,20 +163,20 @@ func (s *stream) handleStreamData(f *frame.Data) error {
 	if f.Length() > 0 {
 		// write the data into the buffer
 		if _, err := s.buf.ReadFrom(f.Reader()); err != nil {
-			if err == bufferFull {
+			switch err {
+			case errBufferFull:
 				s.resetWith(FlowControlError, flowControlViolated)
-			} else if err == closeError {
+			case closeError:
 				// We're trying to emulate net.Conn's Close() behavior where we close our side of the connection,
 				// and if we get any more frames from the other side, we RST it.
 				s.resetWith(StreamClosed, streamClosed)
-			} else if err == bufferClosed {
+			case errBufferClosed:
 				// there was already an error set
 				s.resetWith(StreamClosed, streamClosed)
-			} else {
+			default:
 				// the transport returned some sort of IO error
 				return err
 			}
-			return nil
 		}
 	}
 	if f.Fin() {
