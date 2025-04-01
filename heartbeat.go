@@ -170,7 +170,9 @@ func (h *Heartbeat) requester(mark chan time.Duration) {
 	if err != nil {
 		return
 	}
-	defer stream.Close()
+	defer func() {
+		_ = stream.Close()
+	}()
 
 	interval, _ := h.getDurations()
 	ticker := time.NewTicker(interval)

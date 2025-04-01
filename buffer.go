@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	bufferFull   = errors.New("buffer is full")
-	bufferClosed = errors.New("buffer closed previously")
+	errBufferFull   = errors.New("buffer is full")
+	errBufferClosed = errors.New("buffer closed previously")
 )
 
 type buffer interface {
@@ -41,16 +41,16 @@ func (b *inboundBuffer) ReadFrom(rd io.Reader) (n int64, err error) {
 	b.mu.Lock()
 	if b.err != nil {
 		if _, err = io.ReadAll(rd); err == nil {
-			err = bufferClosed
+			err = errBufferClosed
 		}
 		goto DONE
 	}
 
 	n64, err = b.Buffer.ReadFrom(rd)
 	n += n64
-	if b.Buffer.Len() > b.maxSize {
-		err = bufferFull
-		b.err = bufferFull
+	if b.Len() > b.maxSize {
+		err = errBufferFull
+		b.err = errBufferFull
 	}
 
 	b.cond.Broadcast()
