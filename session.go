@@ -128,7 +128,11 @@ func (s *session) OpenStream() (Stream, error) {
 
 	// make the stream and add it to the stream map
 	str := s.config.newStream(s, nextId, s.config.MaxWindowSize, false, true)
-	s.streams.Set(nextId, str)
+	if !s.streams.Set(nextId, str) {
+		// race with die, abandon this stream
+		str.closeWith(sessionClosed)
+		return nil, remoteGoneAway
+	}
 
 	return str, nil
 }
@@ -311,9 +315,9 @@ func (s *session) die(err error) error {
 	_ = s.transport.Close()
 
 	// notify all of the streams that we're closing
-	s.streams.Each(func(id frame.StreamId, str streamPrivate) {
+	for _, str := range s.streams.Drain() {
 		str.closeWith(sessionClosed)
-	})
+	}
 
 	return nil
 }
@@ -499,7 +503,11 @@ func (s *session) handleSyn(f *frame.Data) (err error) {
 	str := s.config.newStream(s, f.StreamId(), s.config.MaxWindowSize, f.Fin(), false)
 
 	// add it to the stream map
-	s.streams.Set(f.StreamId(), str)
+	if !s.streams.Set(f.StreamId(), str) {
+		// race with die, abandon this stream
+		str.closeWith(sessionClosed)
+		return closeError
+	}
 
 	// put the new stream on the accept channel
 	var retry bool
