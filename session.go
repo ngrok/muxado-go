@@ -28,8 +28,8 @@ type parityFn func(frame.StreamId) bool
 
 // state for each half of the session (remote and local)
 type halfState struct {
-	goneAway uint32 // true if that half of the stream has gone away
-	lastId   uint32 // last id used/seen from one half of the session
+	goneAway atomic.Uint32 // true if that half of the stream has gone away
+	lastId   atomic.Uint32 // last id used/seen from one half of the session
 }
 
 // session implements a simple streaming session manager. It has the following characteristics:
@@ -37,9 +37,9 @@ type halfState struct {
 // - When closing the Session, it does not linger, all pending write operations will fail immediately.
 // - It offers no customization of settings like window size/ping time
 type session struct {
-	dieOnce uint32    // guarantees only one die() call proceeds, first for alignment
-	local   halfState // client state
-	remote  halfState // server state
+	dieOnce atomic.Bool // guarantees only one die() call proceeds
+	local   halfState   // client state
+	remote  halfState   // server state
 
 	config      *Config            // session configuration
 	transport   io.ReadWriteCloser // multiplexing over this transport stream
@@ -88,10 +88,10 @@ func newSession(transport io.ReadWriteCloser, config *Config, isClient bool) Ses
 	sess.remoteDebug.Store(remoteDebug{})
 	if isClient {
 		sess.isLocal = sess.isClient
-		sess.local.lastId += 1
+		sess.local.lastId.Add(1)
 	} else {
 		sess.isLocal = sess.isServer
-		sess.remote.lastId += 1
+		sess.remote.lastId.Add(1)
 	}
 	go sess.reader()
 	go sess.writer()
@@ -116,12 +116,12 @@ func (s *session) Open() (net.Conn, error) {
 
 func (s *session) OpenStream() (Stream, error) {
 	// check if the remote has gone away
-	if atomic.LoadUint32(&s.remote.goneAway) == 1 {
+	if s.remote.goneAway.Load() == 1 {
 		return nil, remoteGoneAway
 	}
 
 	// get the next id we can use
-	nextId := frame.StreamId(atomic.AddUint32(&s.local.lastId, 2))
+	nextId := frame.StreamId(s.local.lastId.Add(2))
 	if nextId&(1<<31) > 0 {
 		return nil, streamsExhausted
 	}
@@ -165,9 +165,9 @@ func (s *session) Close() error {
 
 func (s *session) GoAway(errCode ErrorCode, debug []byte, dl time.Time) (err error) {
 	// mark that we've told the client to go away
-	atomic.StoreUint32(&s.local.goneAway, 1)
+	s.local.goneAway.Store(1)
 	f := new(frame.GoAway)
-	remoteId := frame.StreamId(atomic.LoadUint32(&s.remote.lastId))
+	remoteId := frame.StreamId(s.remote.lastId.Load())
 	if err := f.Pack(remoteId, frame.ErrorCode(errCode), debug); err != nil {
 		return fromFrameError(err)
 	}
@@ -294,7 +294,7 @@ func (s *session) writeFrameAsync(f frame.Frame) error {
 // die closes the session cleanly with the given error and protocol error code
 func (s *session) die(err error) error {
 	// only one shutdown ever happens
-	if !atomic.CompareAndSwapUint32(&s.dieOnce, 0, 1) {
+	if s.dieOnce.Swap(true) {
 		return sessionClosed
 	}
 
@@ -434,7 +434,7 @@ func (s *session) handleFrame(rf frame.Frame) error {
 		}
 
 	case *frame.GoAway:
-		atomic.StoreUint32(&s.remote.goneAway, 1)
+		s.remote.goneAway.Store(1)
 
 		// read out at most 1 MB of debug output
 		r := io.LimitedReader{R: f.Debug(), N: 0x100000}
@@ -482,7 +482,7 @@ func (s *session) handleFrame(rf frame.Frame) error {
 
 func (s *session) handleSyn(f *frame.Data) (err error) {
 	// if we're going away, refuse new streams
-	if atomic.LoadUint32(&s.local.goneAway) == 1 {
+	if s.local.goneAway.Load() == 1 {
 		rstF := new(frame.Rst)
 		if err := rstF.Pack(f.StreamId(), frame.ErrorCode(StreamRefused)); err != nil {
 			return newErr(InternalError, fmt.Errorf("failed to pack stream refused RST: %v", err))
@@ -496,8 +496,15 @@ func (s *session) handleSyn(f *frame.Data) (err error) {
 		return newErr(ProtocolError, err)
 	}
 
+	// A SYN for a stream id that is already open is a protocol violation.
+	// If we let it through, streams.Set would silently replace the existing
+	// entry in the map, leaking a stream.
+	if existing := s.getStream(f.StreamId()); existing != nil {
+		return newErr(ProtocolError, fmt.Errorf("received SYN for already-open stream id: 0x%x", f.StreamId()))
+	}
+
 	// update last remote id
-	atomic.StoreUint32(&s.remote.lastId, uint32(f.StreamId()))
+	s.remote.lastId.Store(uint32(f.StreamId()))
 
 	// make the new stream
 	str := s.config.newStream(s, f.StreamId(), s.config.MaxWindowSize, f.Fin(), false)
