@@ -33,7 +33,8 @@ func (f *GoAway) readFrom(rd io.Reader) error {
 		return protoError("GOAWAY stream id must be zero, not: %d", f.StreamId())
 	}
 	f.debugToRead.R = rd
-	f.debugToRead.N = int64(f.Length())
+	// subtract out what we just read with io.ReadFull above
+	f.debugToRead.N = int64(f.Length()) - goAwayFrameLength
 	return nil
 }
 
