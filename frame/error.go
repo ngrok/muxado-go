@@ -29,10 +29,10 @@ func frameSizeError(length uint32, frameName string) error {
 	return &Error{ErrorFrameSize, fmt.Errorf("illegal %s frame length: 0x%x", frameName, length)}
 }
 
-func protoError(fmtstr string, args ...interface{}) error {
+func protoError(fmtstr string, args ...any) error {
 	return &Error{ErrorProtocol, fmt.Errorf(fmtstr, args...)}
 }
 
-func protoStreamError(fmtstr string, args ...interface{}) error {
+func protoStreamError(fmtstr string, args ...any) error {
 	return &Error{ErrorProtocolStream, fmt.Errorf(fmtstr, args...)}
 }

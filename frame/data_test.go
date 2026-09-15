@@ -3,7 +3,8 @@ package frame
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
+
 	"testing"
 )
 
@@ -32,7 +33,7 @@ func (dt *dataTest) Eq(fr Frame) error {
 	case !dt.fin && f.Fin():
 		return fmt.Errorf("unexpected fin flag: %+v", dt)
 	}
-	buf, err := ioutil.ReadAll(f.Reader())
+	buf, err := io.ReadAll(f.Reader())
 	if err != nil {
 		return fmt.Errorf("Failed to read data: %v, %+v", err, dt)
 	}

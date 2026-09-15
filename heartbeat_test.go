@@ -1,7 +1,6 @@
 package muxado
 
 import (
-	"context"
 	"net"
 	"testing"
 	"testing/synctest"
@@ -39,8 +38,7 @@ func TestHeartbeatAfterTimeout(t *testing.T) {
 // TestHeartbeatFast is a regression test for a 0ms
 // timeout being detectable
 func TestHeartbeatFast(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	client, serv := net.Pipe()
 	stopServerHBs := make(chan struct{})
@@ -80,7 +78,7 @@ func TestHeartbeatFast(t *testing.T) {
 	})
 	hb.Start()
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		_, ok := hb.Beat()
 		if !ok {
 			t.Fatal("beat failed")
