@@ -74,7 +74,7 @@ func runDeserializeTest(t *testing.T, ft FrameTest, expectError bool) {
 
 	// test for correctness
 	if err := ft.Eq(f); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }
 
@@ -98,6 +98,6 @@ func runFramerTest(t *testing.T, ft FrameTest) {
 		return
 	}
 	if err := ft.Eq(rf); err != nil {
-		t.Errorf(err.Error())
+		t.Error(err)
 	}
 }

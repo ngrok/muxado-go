@@ -145,10 +145,6 @@ func (h *Heartbeat) check(mark chan time.Duration) {
 			h.cb(dur, false)
 			interval, tolerance := h.getDurations()
 
-			// this is the only way to safely reset a go timer
-			if !t.Stop() {
-				<-t.C
-			}
 			t.Reset(interval + tolerance)
 
 		case <-h.closed:

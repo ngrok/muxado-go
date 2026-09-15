@@ -107,6 +107,6 @@ func TestDataFrameReadLengthLimited(t *testing.T) {
 		t.Fatalf("failed to read data frame: %v", err)
 	}
 	if err := dt.Eq(f); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 }
