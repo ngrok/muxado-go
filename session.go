@@ -238,7 +238,7 @@ type writeReq struct {
 
 var pool = make(chan chan error, 1024)
 
-func poolGet() interface{} {
+func poolGet() any {
 	select {
 	case item := <-pool:
 		return item
@@ -247,7 +247,7 @@ func poolGet() interface{} {
 	}
 }
 
-func poolPut(x interface{}) {
+func poolPut(x any) {
 	select {
 	case pool <- x.(chan error):
 	default:

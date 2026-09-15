@@ -1,6 +1,6 @@
 module golang.ngrok.com/muxado/v2
 
-go 1.21
+go 1.26.0
 
 require (
 	github.com/hashicorp/yamux v0.1.1
