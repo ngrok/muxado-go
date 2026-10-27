@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	"golang.ngrok.com/muxado/v2/frame"
 )
@@ -270,3 +271,35 @@ func TestRemoveAfterHalfClose(t *testing.T) {
 func TestDataAfterFin(t *testing.T) {
 }
 */
+
+func TestWriteDeadlineWhileWindowFull(t *testing.T) {
+	t.Parallel()
+
+	local, remote := newFakeConnPair()
+	go func() { _, _ = io.Copy(io.Discard, remote) }()
+	s := Client(local, &Config{MaxWindowSize: 10})
+	defer s.Close()
+
+	str, err := s.OpenStream()
+	if err != nil {
+		t.Fatalf("Failed to open stream: %v", err)
+	}
+	if _, err := str.Write(make([]byte, 10)); err != nil {
+		t.Fatalf("Failed to fill the window: %v", err)
+	}
+	if err := str.SetWriteDeadline(time.Now()); err != nil {
+		t.Fatalf("Failed to set the write deadline: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := str.Write([]byte{0})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		t.Fatalf("Write returned %v, expected it to block on the full window", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
