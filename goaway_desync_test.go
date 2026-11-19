@@ -23,7 +23,7 @@ func TestGoAwayDoesNotConsumeFollowingFrame(t *testing.T) {
 	// The server opens streams and writes to each, as we do for proxying real
 	// connections.
 	srvStreams := make([]Stream, 0, 16)
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		st, err := server.OpenStream()
 		if err != nil {
 			t.Fatalf("server OpenStream: %v", err)
@@ -37,7 +37,7 @@ func TestGoAwayDoesNotConsumeFollowingFrame(t *testing.T) {
 	}()
 
 	cliStreams := make([]Stream, 0, 16)
-	for i := 0; i < 16; i++ {
+	for range 16 {
 		st, err := client.AcceptStream()
 		if err != nil {
 			t.Fatalf("client AcceptStream: %v", err)
@@ -49,12 +49,9 @@ func TestGoAwayDoesNotConsumeFollowingFrame(t *testing.T) {
 	// coordination, so a FIN can race onto the wire just behind the GOAWAY.
 	var wg sync.WaitGroup
 	start := make(chan struct{})
-	wg.Add(1)
-	go func() { defer wg.Done(); <-start; _ = client.Close() }()
+	wg.Go(func() { ; <-start; _ = client.Close() })
 	for _, st := range cliStreams {
-		st := st
-		wg.Add(1)
-		go func() { defer wg.Done(); <-start; _ = st.CloseWrite() }()
+		wg.Go(func() { ; <-start; _ = st.CloseWrite() })
 	}
 	close(start)
 

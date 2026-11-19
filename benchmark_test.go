@@ -130,7 +130,7 @@ func server(b *testing.B, sess muxSession, payloadSize int64, concurrency int, d
 		var wg sync.WaitGroup
 		wg.Add(concurrency)
 		start := make(chan int)
-		for c := 0; c < concurrency; c++ {
+		for range concurrency {
 			go func() {
 				<-start
 				str, err := sess.OpenStream()
