@@ -321,11 +321,3 @@ func (s *stream) sendWindowUpdate(inc uint32) {
 	}
 	_ = s.session.writeFrameAsync(&wndinc)
 }
-
-func min(n1, n2 int) int {
-	if n1 > n2 {
-		return n2
-	} else {
-		return n1
-	}
-}
