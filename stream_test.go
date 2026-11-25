@@ -1,9 +1,12 @@
 package muxado
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
+	"os"
 	"testing"
+	"time"
 
 	"golang.ngrok.com/muxado/v2/frame"
 )
@@ -270,3 +273,41 @@ func TestRemoveAfterHalfClose(t *testing.T) {
 func TestDataAfterFin(t *testing.T) {
 }
 */
+
+func TestWriteDeadlineWhileWindowFull(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		deadline func() time.Time
+	}{
+		{name: "expired before the write", deadline: time.Now},
+		{name: "expires while the write waits", deadline: func() time.Time { return time.Now().Add(50 * time.Millisecond) }},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			local, remote := newFakeConnPair()
+			go func() { _, _ = io.Copy(io.Discard, remote) }()
+			s := Client(local, &Config{MaxWindowSize: 10})
+			defer s.Close()
+
+			str, err := s.OpenStream()
+			if err != nil {
+				t.Fatalf("Failed to open stream: %v", err)
+			}
+			if _, err := str.Write(make([]byte, 10)); err != nil {
+				t.Fatalf("Failed to fill the window: %v", err)
+			}
+			if err := str.SetWriteDeadline(tc.deadline()); err != nil {
+				t.Fatalf("Failed to set the write deadline: %v", err)
+			}
+
+			if _, err := str.Write([]byte{0}); !errors.Is(err, os.ErrDeadlineExceeded) {
+				t.Fatalf("Write returned %v, expected %v", err, os.ErrDeadlineExceeded)
+			}
+		})
+	}
+}

@@ -38,7 +38,6 @@ type stream struct {
 	buf            buffer         // buffer for data coming in from the remote side
 	window         windowManager  // manages the outbound window
 	writer         sync.Mutex     // only one writer at a time
-	writeDeadline  time.Time      // deadline for writes (protected by writer mutex)
 	windowSize     uint32         // max window size
 	frData         frame.Data     // data frame used in writes
 	halfCloseMutex sync.Mutex     // synchornizes access to half-close tracking state
@@ -128,9 +127,7 @@ func (s *stream) SetReadDeadline(dl time.Time) error {
 }
 
 func (s *stream) SetWriteDeadline(dl time.Time) error {
-	s.writer.Lock()
-	s.writeDeadline = dl
-	s.writer.Unlock()
+	s.window.SetDeadline(dl)
 	return nil
 }
 
@@ -287,7 +284,7 @@ func (s *stream) write(buf []byte, fin bool) (n int, err error) {
 		}
 
 		// write the frame
-		if err = s.session.writeFrame(&s.frData, s.writeDeadline); err != nil {
+		if err = s.session.writeFrame(&s.frData, s.window.Deadline()); err != nil {
 			s.writer.Unlock()
 			return
 		}
